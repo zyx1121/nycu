@@ -1,98 +1,106 @@
-# NYCU
+<div align="center">
 
-供 Codex 與 Claude Code 使用的 NYCU MCP plugin。從
-[zyx1121/plugin](https://github.com/zyx1121/plugin) 拆出原有 21 個工具，
-涵蓋校務入口、E3、公開課表與工讀出勤。MCP 是操作入口，scripts 是實作；
-不另外維護重複的 skill 工具手冊。
+<h1>NYCU</h1>
 
-## 安裝
+<p><strong>NYCU portal, E3, timetable and part-time attendance as MCP tools for your agent.</strong></p>
 
-請 agent 從 [zyx1121/marketplace](https://github.com/zyx1121/marketplace)
-安裝 `nycu@zyx1121`。也可使用 host 的安裝指令：
+[![CI](https://img.shields.io/github/actions/workflow/status/zyx1121/nycu/check.yml?branch=main&style=flat-square&label=CI)](https://github.com/zyx1121/nycu/actions)
+[![Claude Code](https://img.shields.io/badge/Claude_Code-plugin-D97757?style=flat-square)](https://github.com/zyx1121/marketplace)
+[![License](https://img.shields.io/github/license/zyx1121/nycu?style=flat-square)](LICENSE)
 
-```sh
-# Claude Code
-claude plugin marketplace add zyx1121/marketplace
-claude plugin install nycu@zyx1121
+**English** | [繁體中文](README.zh-TW.md) | [简体中文](README.zh-CN.md)
 
-# Codex
-codex plugin marketplace add zyx1121/marketplace
-codex plugin add nycu@zyx1121
+</div>
+
+```
+> "Which E3 assignments are due this week?"
+  ⚡ e3p_list_due { "days": 7 }
+✓ 3 assignments: 2 on Friday, 1 next Monday.
 ```
 
-需要 Bun 1.3.13+、uv、Python 3.11+（uv 可管理）。MCP 已打包，安裝後不需要
-在 plugin 目錄執行 bun install。Python 套件由各 script 的 PEP 723 宣告解析。
+NYCU students use three websites for E3 coursework, the course timetable and part-time attendance. This plugin gives Codex and Claude Code 21 tools for them, and every tool that writes needs an explicit confirmation.
 
-## 能力與平台
+## Features
 
-| 服務 | 工具數 | 條件 |
-|---|---:|---|
-| E3 課程、作業、期限、成績、教材下載 | 9 | E3 token；macOS / Linux |
-| 公開課表、課程時間、節次 | 4 | 不需登入；macOS / Linux |
-| 校務入口身分、系統、活動、登入準備 | 5 | macOS Keychain、Playwright Chromium |
-| 工讀出勤狀態、簽到、簽退 | 3 | 同一份校務 SSO，且網路須可存取校內 timeclock |
+- **Reads E3**: courses, assignments, deadlines, grades, submissions and material downloads (9 tools).
+- **Searches the public timetable**: courses, class times and periods, with no login (4 tools).
+- **Uses the portal session**: identity, systems and events through NYCU single sign-on (5 tools).
+- **Signs part-time attendance**: status, sign-in and sign-out, with `confirm` and `dry_run` (3 tools).
+- **Registers by platform**: macOS gets all 21 tools. Linux gets the 13 E3 and timetable tools.
 
-macOS 可註冊全部 21 個工具；Linux 註冊 E3 與課表的 13 個工具。
-啟動只檢查平台與 uv，不嘗試登入或連線。缺少條件的工具列於 stderr 診斷。
-`NYCU_FORCE_PLATFORM` 是測試用的平台覆寫，不會讓 Linux 取得 Keychain 能力。
+## Quick start
 
-例如：「列出近期 E3 作業」、「這門課幾點在哪間教室」、「查看今天工讀狀態」。
-`parttime_sign_in` / `parttime_sign_out` 會寫入真實出勤紀錄，沿用明確的
-`confirm=true` 與 `dry_run` 參數。兩個 logout 工具同樣保留確認欄位。
+```sh
+claude plugin marketplace add zyx1121/marketplace
+claude plugin install nycu@zyx1121
+```
 
-## 登入與私有設定
+Codex: `codex plugin marketplace add zyx1121/marketplace`, then `codex plugin add nycu@zyx1121`. Start a new session and ask "Which E3 assignments are due this week?".
 
-三種資料來源各自獨立，不強迫課表或 E3 透過校務入口登入：
+The plugin needs Bun 1.3.13 or later, uv, and Python 3.11 or later. uv can install Python. The MCP server ships bundled, so the plugin directory needs no `bun install`.
 
-- 校務 token：`~/.config/nycu/portal.json`。
-- E3 token：`~/.config/nycu/e3p.json`。
-- 校務帳密與 TOTP：Keychain 的 `kilo/nycu-portal`、`kilo/nycu-totp` service，
-  account 都是學號，TOTP 存 `otpauth://` URI。
+## Usage
 
-Token 檔案權限為 0600，支援 `XDG_CONFIG_HOME`。明確路徑可由
-`NYCU_PORTAL_CONFIG` / `NYCU_E3P_CONFIG` 指定；舊的 `UTILS_NYCU_CONFIG` /
-`UTILS_E3P_CONFIG` 仍有效，新名稱優先。
-E3 也接受 `NYCU_E3P_TOKEN`、`NYCU_E3P_USERID`、`NYCU_E3P_BASE`、
-`NYCU_E3P_SERVICE`，優先於相對應的 `UTILS_E3P_*`。
+| Service | Tools | Needs |
+|---------|-------|-------|
+| E3 | `e3p_whoami`, `e3p_list_courses`, `e3p_list_assignments`, `e3p_list_due`, `e3p_get_submission`, `e3p_list_grades`, `e3p_get_content`, `e3p_download_file`, `e3p_logout` | an E3 token, macOS or Linux |
+| Timetable | `timetable_list_semesters`, `timetable_search_courses`, `timetable_lookup_courses`, `timetable_get_periods` | nothing, macOS or Linux |
+| Portal | `nycu_setup`, `nycu_whoami`, `nycu_list_systems`, `nycu_list_events`, `nycu_logout` | macOS Keychain and Playwright Chromium |
+| Attendance | `parttime_get_status`, `parttime_sign_in`, `parttime_sign_out` | the portal session and the campus network |
 
-已有設定的使用者執行下方遷移即可。全新設定時，請 agent 先確認缺少的是
-哪一項；校務 Chromium 用 `nycu_setup` 準備，帳密仍透過本機 Keychain 安全輸入。
-E3 首次取 token 保留內部 script 的互動式 `uv run scripts/e3p.py login`，
-密碼以隱藏提示輸入，不包成讓密碼經過對話的 MCP tool。
+- **E3 login**: in the plugin directory, run `uv run scripts/e3p.py login` once. It asks for the password at a hidden prompt, so the password never passes through the conversation.
+- **Portal login**: store your student ID and password in the Keychain item `kilo/nycu-portal`, and the `otpauth://` URI in `kilo/nycu-totp`. Then ask the agent to run `nycu_setup`, which prepares Chromium.
+- **Attendance**: `parttime_sign_in` and `parttime_sign_out` write real attendance records. They need `confirm=true`. Use `dry_run` first.
 
-E3 下載僅把 token 傳給已設定 Moodle 的 HTTPS pluginfile URL，跨來源重新導向
-會拒絕；下載錯誤不包含 token URL。這是本次抽出時修正的既有憑證外洩問題。
+## Configuration
 
-## 從 zyx 遷移
+| Setting | Where | Default |
+|---------|-------|---------|
+| Portal token | `NYCU_PORTAL_CONFIG` | `~/.config/nycu/portal.json` |
+| E3 token | `NYCU_E3P_CONFIG` | `~/.config/nycu/e3p.json` |
+| E3 overrides | `NYCU_E3P_TOKEN`, `NYCU_E3P_USERID`, `NYCU_E3P_BASE`, `NYCU_E3P_SERVICE` | from the E3 token file |
+| Portal password | Keychain `kilo/nycu-portal`, account = student ID | required for portal tools |
+| Portal TOTP | Keychain `kilo/nycu-totp`, account = student ID | required for portal tools |
+| Platform override, tests only | `NYCU_FORCE_PLATFORM` | the real platform |
 
-1. 安裝本 plugin，請 agent 在安裝目錄執行 `python3 scripts/migrate_config.py`。
-2. 遷移器把預設 `~/.config/utils/nycu.json`、`e3p.json` 移到新位置，保留
-   `~/.config/nycu/migration-backups/` 下的 0600 備份。既有新設定不覆寫；
-   明確指定 config 環境變數的路徑保持原樣。輸出只有遷移狀態，不含 token。
-3. 以唯讀工具驗證後，更新 zyx 到 0.26.0，並重啟 host。
+Token files have mode 600 and follow `XDG_CONFIG_HOME`. The older `UTILS_NYCU_CONFIG`, `UTILS_E3P_CONFIG` and `UTILS_E3P_*` names still work, but the `NYCU_*` names win.
 
-所有 21 個短工具名稱、參數和輸出 schema 保持原樣。完整名稱從
-`plugin_zyx_utils` 移到 `plugin_nycu_nycu`（以 host 顯示為準）；引用完整名稱
-的權限或 hooks 需同步更新。不要另註冊同一個 NYCU MCP server。
+## How it works
 
-新程式不會偷偷退回舊預設 token 路徑，因此登出後不會重新讀入舊 token。
-備份也不會自動載入。Plugin 更新與解除安裝不刪除私有登入設定。
-校務快取 JWT 過期，或 API／relay 回報 token timeout 時，會重新登入一次；
-第二次仍失敗就回報錯誤，不會無限重試。
+The Bun MCP server registers the tools for the platform at startup. It looks only at the platform and uv, and it does not log in or connect. Each call runs a Python script through uv, and each script declares its packages inline (PEP 723).
 
-## 開發與驗證
+- The portal relogs once when its cached token expires, then reports the error.
+- E3 downloads send the token only to the configured Moodle `pluginfile` URL over HTTPS. They reject cross-origin redirects, and error messages never contain the token URL.
+
+## Limits
+
+- Attendance writes are real. A timeout does not mean a rollback, so call `parttime_get_status` after a timeout.
+- Attendance needs the campus network, because the timeclock is reachable only from there.
+- Portal and attendance tools need macOS, for the Keychain.
+
+## For AI agents
+
+Facts for coding agents and LLM tools. The rules for changing the code are in [AGENTS.md](AGENTS.md).
+
+- **Summary**: Claude Code and Codex plugin with 21 MCP tools for NYCU E3, the public timetable, the portal and part-time attendance.
+- **Type**: plugin
+- **Interfaces**: MCP `nycu` (stdio, `dist/server.js`). Python scripts in `scripts/` run under uv.
+- **Install**: `claude plugin install nycu@zyx1121`, after `claude plugin marketplace add zyx1121/marketplace`
+- **Run**: the host starts the MCP server
+- **Verify**: call `timetable_list_semesters`, which needs no login
+- **Config**: `NYCU_PORTAL_CONFIG`, `NYCU_E3P_CONFIG`, `NYCU_E3P_TOKEN`, `NYCU_E3P_USERID`, `NYCU_E3P_BASE`, `NYCU_E3P_SERVICE`
+- **Secrets**: Keychain `kilo/nycu-portal` and `kilo/nycu-totp`, and the token files in `~/.config/nycu/`
+- **Limits**: attendance writes are real and need `confirm=true`. Portal tools are macOS only.
+
+## Development
 
 ```sh
 bun install --frozen-lockfile
 bun run check
 ```
 
-Root `plugin.json` / `mcp.json` 是 manifest 來源；build 產生 Claude 相容檔與
-`dist/server.js`，CI 檢查生成檔一致。測試涵蓋平台註冊、confirmation、MCP
-錯誤 contract、無 node_modules 的 bundle、設定遷移、E3 下載 token 保護，
-portal token 更新，以及使用合成資料的出勤解析／按鈕選擇回歸。CI 不需要校務帳密、不呼叫真實出勤。
+`plugin.json` and `mcp.json` are the manifest sources. The build writes the Claude-compatible files and `dist/server.js`, and CI fails when the committed copies differ. The tests use synthetic data, so CI needs no NYCU account and never signs attendance.
 
-沿用既有服務 timeout；逾時不代表寫入已回滾，出勤操作逾時後先查狀態。
-原始 scripts、schemas 與 helper 來自
-[zyx1121/plugin@9f3e6aa](https://github.com/zyx1121/plugin/tree/9f3e6aa)，保留 MIT。
-此套件沒有對原 repo 或其他 plugin 的 runtime 依賴。
+## License
+
+[MIT](LICENSE)
