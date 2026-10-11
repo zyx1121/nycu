@@ -14,10 +14,9 @@
 
 </div>
 
-```
-> "Which E3 assignments are due this week?"
-  ⚡ e3p_list_due { "days": 7 }
-✓ 3 assignments: 2 on Friday, 1 next Monday.
+```console
+$ timetable_list_semesters
+{"data": ["1151", "114X", "1142", "1141", "113X", ...], "metadata": {"count": 83}}
 ```
 
 陽明交大的學生要在三個網站之間切換：E3 課程、課表和兼任簽到。這個 plugin 給 Codex 和 Claude Code 21 個工具，所有會寫入的工具都要明確確認。

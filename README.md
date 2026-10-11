@@ -12,10 +12,9 @@
 
 </div>
 
-```
-> "Which E3 assignments are due this week?"
-  ⚡ e3p_list_due { "days": 7 }
-✓ 3 assignments: 2 on Friday, 1 next Monday.
+```console
+$ timetable_list_semesters
+{"data": ["1151", "114X", "1142", "1141", "113X", ...], "metadata": {"count": 83}}
 ```
 
 NYCU students use three websites for E3 coursework, the course timetable and part-time attendance. This plugin gives Codex and Claude Code 21 tools for them, and every tool that writes needs an explicit confirmation.
