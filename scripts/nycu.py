@@ -13,8 +13,8 @@ atom), then every other command reuses the cached JWT from
 build on the same shared layer in `lib/_nycu_portal.py`.
 
 Creds come from macOS Keychain:
-  service utils-nycu       account=<student id>  password=<portal password>
-  service utils-nycu-totp  account=<student id>  password=<otpauth://totp/... URI>
+  service kilo/nycu-portal  account=<student id>  password=<portal password>
+  service kilo/nycu-totp    account=<student id>  password=<otpauth://totp/... URI>
 """
 from __future__ import annotations
 

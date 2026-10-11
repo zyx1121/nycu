@@ -46,8 +46,8 @@ macOS 可註冊全部 21 個工具；Linux 註冊 E3 與課表的 13 個工具�
 
 - 校務 token：`~/.config/nycu/portal.json`。
 - E3 token：`~/.config/nycu/e3p.json`。
-- 校務帳密與 TOTP：沿用 Keychain 的 `utils-nycu`、`utils-nycu-totp` service
-  名稱，避免拆分造成重新授權。這些名稱是相容性設定，不依賴舊 plugin。
+- 校務帳密與 TOTP：Keychain 的 `kilo/nycu-portal`、`kilo/nycu-totp` service，
+  account 都是學號，TOTP 存 `otpauth://` URI。
 
 Token 檔案權限為 0600，支援 `XDG_CONFIG_HOME`。明確路徑可由
 `NYCU_PORTAL_CONFIG` / `NYCU_E3P_CONFIG` 指定；舊的 `UTILS_NYCU_CONFIG` /

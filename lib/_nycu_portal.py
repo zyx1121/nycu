@@ -77,10 +77,16 @@ def scrub(text: Optional[str], *secrets: str) -> Optional[str]:
 
 
 # ── credentials ──────────────────────────────────────────────────
+# Keychain services: the portal password and the otpauth:// TOTP URI, both
+# with the student id as the account.
+PORTAL_SERVICE = "kilo/nycu-portal"
+TOTP_SERVICE = "kilo/nycu-totp"
+
+
 def creds() -> tuple[str, str, str]:
     """Return (account, password, totp_uri) from macOS Keychain."""
-    account, password = _keychain("utils-nycu")
-    _, totp_uri = _keychain("utils-nycu-totp")
+    account, password = _keychain(PORTAL_SERVICE)
+    _, totp_uri = _keychain(TOTP_SERVICE)
     return account, password, totp_uri
 
 
@@ -94,7 +100,7 @@ def _keychain(service: str) -> tuple[str, str]:
         raise PortalError(
             "nycu credentials missing",
             why=f"keychain item '{service}' not found: {out.stderr.strip()}",
-            hint="security add-generic-password -s utils-nycu -a <student id> -w   (run in Terminal.app, not from Claude's `!` shell, which stores an empty value)",
+            hint=f"security add-generic-password -s {service} -a <student id> -w   (run in Terminal.app, not from Claude's `!` shell, which stores an empty value)",
         )
     acct = next(
         (line.split('"')[3] for line in out.stdout.splitlines() if line.strip().startswith('"acct"')),
@@ -109,7 +115,7 @@ def _keychain(service: str) -> tuple[str, str]:
         raise PortalError(
             "nycu credentials missing",
             why=f"keychain item '{service}' has no account or password",
-            hint="security add-generic-password -s utils-nycu -a <student id> -w   (run in Terminal.app, not from Claude's `!` shell, which stores an empty value)",
+            hint=f"security add-generic-password -s {service} -a <student id> -w   (run in Terminal.app, not from Claude's `!` shell, which stores an empty value)",
         )
     return acct, pw_out.stdout.strip()
 

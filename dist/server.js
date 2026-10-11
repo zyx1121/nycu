@@ -35439,7 +35439,7 @@ var allTools = [...e3pTools, ...nycuTools, ...parttimeTools, ...timetableTools];
 var plugin_default = {
   $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   name: "nycu",
-  version: "0.1.0",
+  version: "0.2.0",
   description: "NYCU portal, E3 coursework, public timetable and part-time attendance through MCP.",
   author: {
     name: "zyx1121",
