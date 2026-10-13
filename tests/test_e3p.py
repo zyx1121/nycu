@@ -65,4 +65,30 @@ class DownloadTest(unittest.TestCase):
             e3p._DownloadRedirect(CREDS["base"]).redirect_request(None, None, 302, "", {}, "https://foreign.test/pluginfile.php/file")
 
 
+class AnnouncementsTest(unittest.TestCase):
+    def test_html_to_text_keeps_paragraphs(self):
+        self.assertEqual(e3p._html_to_text("<p>Hi&nbsp; all</p><p>Line<br>two</p>"), "Hi all\nLine\ntwo")
+
+    def test_lists_recent_news_posts_only(self):
+        now = int(e3p.datetime.now().timestamp())
+        def ws(function, **params):
+            if function == "mod_forum_get_forums_by_courses":
+                return [{"id": 1, "course": 9, "type": "news"}, {"id": 2, "course": 9, "type": "general"}]
+            self.assertEqual(params["forumid"], 1)
+            return {"discussions": [
+                {"discussion": 5, "subject": "old", "created": now - 40 * 86400, "pinned": True, "message": ""},
+                {"discussion": 6, "subject": "new", "created": now - 86400, "message": "<p>hello</p>", "attachments": [{"filename": "a.pdf", "fileurl": "https://example.test/webservice/pluginfile.php/a.pdf"}]},
+            ]}
+        captured = io.StringIO()
+        with patch.object(e3p, "_load_creds", return_value=CREDS), patch.object(e3p, "_ws", side_effect=ws), contextlib.redirect_stdout(captured):
+            e3p.announcements(courseid=9, days=30, limit=20)
+        out = captured.getvalue()
+        self.assertNotIn(CREDS["token"], out)
+        rows = json.loads(out)["data"]
+        self.assertEqual([r["subject"] for r in rows], ["new"])
+        self.assertEqual(rows[0]["message"], "hello")
+        self.assertEqual(rows[0]["url"], "https://example.test/mod/forum/discuss.php?d=6")
+        self.assertEqual(rows[0]["attachments"][0]["name"], "a.pdf")
+
+
 if __name__ == "__main__": unittest.main()

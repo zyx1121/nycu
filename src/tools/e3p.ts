@@ -84,6 +84,28 @@ export const e3pTools: ToolboxTool[] = [
     },
   }),
   scriptTool({
+    name: "e3p_list_announcements",
+    description: "List recent posts from the announcements forum of one course or all visible enrolled courses, newest first, with the full message text and attachment URLs (input to e3p_download_file).",
+    inputSchema: {
+      courseid: z.number().optional().describe("Course ID. Omit for all visible courses."),
+      days: z.number().optional().describe("Look-back days. Default: 30."),
+      limit: z.number().optional().describe("Maximum posts per course. Default: 20."),
+    },
+    annotations: read,
+    script,
+    requires,
+    envelope,
+    timeoutMs,
+    truncationHint: "pass courseid to scope to one course, or lower days",
+    buildArgs: (input) => {
+      const argv = ["announcements"];
+      pushPos(argv, input.courseid);
+      pushFlag(argv, "--days", input.days);
+      pushFlag(argv, "--limit", input.limit);
+      return argv;
+    },
+  }),
+  scriptTool({
     name: "e3p_get_submission",
     description: "Get detailed submission status for one assignment.",
     inputSchema: { assignid: z.number().describe("Assignment ID.") },

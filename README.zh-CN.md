@@ -19,7 +19,7 @@ $ timetable_list_semesters
 {"data": ["1151", "114X", "1142", "1141", "113X", ...], "metadata": {"count": 83}}
 ```
 
-阳明交大的学生要在三个网站之间切换：E3 课程、课表和兼任签到。这个插件给 Codex 和 Claude Code 21 个工具，所有会写入的工具都要明确确认。
+阳明交大的学生要在三个网站之间切换：E3 课程、课表和兼任签到。这个插件给 Codex 和 Claude Code 22 个工具，所有会写入的工具都要明确确认。
 
 ## 功能
 
@@ -27,7 +27,7 @@ $ timetable_list_semesters
 - **查询公开课表**：课程、上课时间和节次，不用登录(4 个工具)。
 - **使用门户登录**：通过阳明交大单点登录查询身份、系统和活动(5 个工具)。
 - **兼任签到**：状态、签到和签退，有 `confirm` 和 `dry_run`(3 个工具)。
-- **按平台注册**：macOS 有全部 21 个工具，Linux 有 E3 和课表的 13 个。
+- **按平台注册**：macOS 有全部 22 个工具，Linux 有 E3 和课表的 14 个。
 
 ## 快速开始
 
@@ -44,7 +44,7 @@ Codex：先 `codex plugin marketplace add zyx1121/marketplace`，再 `codex plug
 
 | 服务 | 工具 | 需要 |
 |------|------|------|
-| E3 | `e3p_whoami`、`e3p_list_courses`、`e3p_list_assignments`、`e3p_list_due`、`e3p_get_submission`、`e3p_list_grades`、`e3p_get_content`、`e3p_download_file`、`e3p_logout` | E3 令牌，macOS 或 Linux |
+| E3 | `e3p_whoami`、`e3p_list_courses`、`e3p_list_assignments`、`e3p_list_due`、`e3p_list_announcements`、`e3p_get_submission`、`e3p_list_grades`、`e3p_get_content`、`e3p_download_file`、`e3p_logout` | E3 令牌，macOS 或 Linux |
 | 课表 | `timetable_list_semesters`、`timetable_search_courses`、`timetable_lookup_courses`、`timetable_get_periods` | 不需要，macOS 或 Linux |
 | 门户 | `nycu_setup`、`nycu_whoami`、`nycu_list_systems`、`nycu_list_events`、`nycu_logout` | macOS 钥匙串和 Playwright Chromium |
 | 签到 | `parttime_get_status`、`parttime_sign_in`、`parttime_sign_out` | 门户登录和校内网络 |

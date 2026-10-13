@@ -3,7 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["typer", "rich"]
 # ///
-"""E3@NYCU (Moodle) atoms — login / whoami / courses / assignments / due / submission / grades / content / download / call.
+"""E3@NYCU (Moodle) atoms — login / whoami / courses / assignments / due / announcements / submission / grades / content / download / call.
 
 Wraps the Moodle Web Services REST API (`/webservice/rest/server.php`) so
 agents and humans can query an enrolled Moodle site without hand-rolling
@@ -72,7 +72,7 @@ app = typer.Typer(
     rich_markup_mode=None,
     no_args_is_help=True,
     add_completion=False,
-    help="E3@NYCU (Moodle) atoms — login / courses / assignments / due / submission / grades / content / download / call.",
+    help="E3@NYCU (Moodle) atoms — login / courses / assignments / due / announcements / submission / grades / content / download / call.",
 )
 console = Console()
 
@@ -528,6 +528,75 @@ def content(courseid: int = typer.Argument(...)) -> None:
         console.print(t)
 
     emit(out, {"count": len(out), "courseid": courseid}, human=human)
+
+
+# ── announcements ───────────────────────────────────────────────
+def _html_to_text(s: str) -> str:
+    """Keep line breaks from block tags so a post reads as paragraphs, not one run-on line."""
+    s = re.sub(r"(?i)<br\s*/?>|</(p|div|li|h[1-6]|tr)>", "\n", s or "")
+    s = html.unescape(re.sub(r"<[^>]+>", "", s)).replace("\xa0", " ")
+    lines = [re.sub(r"[ \t]+", " ", ln).strip() for ln in s.splitlines()]
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+
+
+@app.command(help="Recent posts in each course's announcements forum (Moodle news forum), newest first.")
+def announcements(
+    courseid: Optional[int] = typer.Argument(None, help="Course ID; omit for all visible enrolled courses"),
+    days: int = typer.Option(30, "--days", "-d", help="Look back window"),
+    limit: int = typer.Option(20, "--limit", "-n", help="Maximum posts per course"),
+) -> None:
+    creds = _load_creds()
+    if courseid:
+        course_ids = [courseid]
+    else:
+        if not creds.get("userid"):
+            fail("missing userid", hint="set NYCU_E3P_USERID or run `uv run scripts/e3p.py login`")
+        cs = _ws("core_enrol_get_users_courses", userid=creds["userid"], _creds=creds)
+        course_ids = [c["id"] for c in cs if c.get("visible", 1)]
+    if not course_ids:
+        emit([], {"count": 0, "days": days}, human=lambda d, _m: console.print("no courses"))
+        return
+
+    forums = _ws("mod_forum_get_forums_by_courses", courseids=course_ids, _creds=creds)
+    since = int(datetime.now().timestamp()) - days * 86400
+    rows: list[dict] = []
+    for f in forums:
+        if f.get("type") != "news":
+            continue
+        res = _ws("mod_forum_get_forum_discussions", forumid=f["id"], sortorder=1, page=0, perpage=limit, _creds=creds)
+        for x in res.get("discussions", []):
+            # Pinned posts sort first regardless of age, so filter rather than stop early.
+            posted = x.get("created") or x.get("timemodified") or 0
+            if posted < since:
+                continue
+            rows.append({
+                "courseid": f["course"],
+                "forumid": f["id"],
+                "discussionid": x.get("discussion"),
+                "subject": x.get("subject") or x.get("name"),
+                "author": x.get("userfullname"),
+                "created": posted,
+                "pinned": bool(x.get("pinned")),
+                "message": _html_to_text(x.get("message", "")),
+                "attachments": [
+                    {"name": a.get("filename"), "url": a.get("fileurl")}
+                    for a in (x.get("attachments") or [])
+                ],
+                "url": f"{creds['base'].rstrip('/')}/mod/forum/discuss.php?d={x.get('discussion')}",
+            })
+    rows.sort(key=lambda r: r["created"], reverse=True)
+
+    def human(d, _m):
+        t = Table(show_header=True, header_style="bold")
+        t.add_column("Posted")
+        t.add_column("Course", justify="right")
+        t.add_column("Subject")
+        t.add_column("Author")
+        for r in d:
+            t.add_row(_fmt_ts(r["created"], "%m/%d %H:%M"), str(r["courseid"]), r["subject"] or "-", r["author"] or "-")
+        console.print(t)
+
+    emit(rows, {"count": len(rows), "days": days}, human=human)
 
 
 # ── download ────────────────────────────────────────────────────
