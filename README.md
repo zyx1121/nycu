@@ -17,7 +17,7 @@ $ timetable_list_semesters
 {"data": ["1151", "114X", "1142", "1141", "113X", ...], "metadata": {"count": 83}}
 ```
 
-NYCU students use three websites for E3 coursework, the course timetable and part-time attendance. This plugin gives Codex and Claude Code 22 tools for them, and every tool that writes needs an explicit confirmation.
+NYCU students use three websites for E3 coursework, the course timetable and part-time attendance. This plugin gives Codex and Claude Code 26 tools for them, and every tool that writes needs an explicit confirmation.
 
 ## Features
 
@@ -25,7 +25,7 @@ NYCU students use three websites for E3 coursework, the course timetable and par
 - **Searches the public timetable**: courses, class times and periods, with no login (4 tools).
 - **Uses the portal session**: identity, systems and events through NYCU single sign-on (5 tools).
 - **Signs part-time attendance**: status, sign-in and sign-out, with `confirm` and `dry_run` (3 tools).
-- **Registers by platform**: macOS gets all 22 tools. Linux gets the 14 E3 and timetable tools.
+- **Registers by platform**: macOS gets all 26 tools. Linux gets the 18 E3 and timetable tools.
 
 ## Quick start
 
@@ -42,7 +42,7 @@ The plugin needs Bun 1.3.13 or later, uv, and Python 3.11 or later. uv can insta
 
 | Service | Tools | Needs |
 |---------|-------|-------|
-| E3 | `e3p_whoami`, `e3p_list_courses`, `e3p_list_assignments`, `e3p_list_due`, `e3p_list_announcements`, `e3p_get_submission`, `e3p_list_grades`, `e3p_get_content`, `e3p_download_file`, `e3p_logout` | an E3 token, macOS or Linux |
+| E3 | `e3p_whoami`, `e3p_list_courses`, `e3p_list_assignments`, `e3p_list_due`, `e3p_list_announcements`, `e3p_get_discussion`, `e3p_list_updates`, `e3p_list_notifications`, `e3p_list_quizzes`, `e3p_get_submission`, `e3p_list_grades`, `e3p_get_content`, `e3p_download_file`, `e3p_logout` | an E3 token, macOS or Linux |
 | Timetable | `timetable_list_semesters`, `timetable_search_courses`, `timetable_lookup_courses`, `timetable_get_periods` | nothing, macOS or Linux |
 | Portal | `nycu_setup`, `nycu_whoami`, `nycu_list_systems`, `nycu_list_events`, `nycu_logout` | macOS Keychain and Playwright Chromium |
 | Attendance | `parttime_get_status`, `parttime_sign_in`, `parttime_sign_out` | the portal session and the campus network |
@@ -81,7 +81,7 @@ The Bun MCP server registers the tools for the platform at startup. It looks onl
 
 Facts for coding agents and LLM tools. The rules for changing the code are in [AGENTS.md](AGENTS.md).
 
-- **Summary**: Claude Code and Codex plugin with 22 MCP tools for NYCU E3, the public timetable, the portal and part-time attendance.
+- **Summary**: Claude Code and Codex plugin with 26 MCP tools for NYCU E3, the public timetable, the portal and part-time attendance.
 - **Type**: plugin
 - **Interfaces**: MCP `nycu` (stdio, `dist/server.js`). Python scripts in `scripts/` run under uv.
 - **Install**: `claude plugin install nycu@zyx1121`, after `claude plugin marketplace add zyx1121/marketplace`

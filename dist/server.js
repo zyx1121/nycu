@@ -35179,7 +35179,7 @@ var e3pTools = [
   }),
   scriptTool({
     name: "e3p_list_announcements",
-    description: "List recent posts from the announcements forum of one course or all visible enrolled courses, newest first, with the full message text and attachment URLs (input to e3p_download_file).",
+    description: "List recent posts from the announcements forum of one course or all visible enrolled courses, newest first, with the first post's full text and attachment URLs (input to e3p_download_file). Replies are in e3p_get_discussion.",
     inputSchema: {
       courseid: exports_external.number().optional().describe("Course ID. Omit for all visible courses."),
       days: exports_external.number().optional().describe("Look-back days. Default: 30."),
@@ -35196,6 +35196,77 @@ var e3pTools = [
       pushPos(argv, input2.courseid);
       pushFlag(argv, "--days", input2.days);
       pushFlag(argv, "--limit", input2.limit);
+      return argv;
+    }
+  }),
+  scriptTool({
+    name: "e3p_get_discussion",
+    description: "Get every post in one forum discussion, oldest first: the opening post and all replies with parentid, full text and attachment URLs. discussionid comes from e3p_list_announcements.",
+    inputSchema: { discussionid: exports_external.number().describe("Discussion ID.") },
+    annotations: read,
+    script,
+    requires,
+    envelope,
+    timeoutMs,
+    buildArgs: (input2) => ["discussion", String(input2.discussionid)]
+  }),
+  scriptTool({
+    name: "e3p_list_updates",
+    description: "List course activities added or changed in the last N days (new files, edited assignment instructions, new forum posts), newest first. Costs two API calls per course, so scope it with courseid.",
+    inputSchema: {
+      courseid: exports_external.number().optional().describe("Course ID. Omit for all visible courses."),
+      days: exports_external.number().optional().describe("Look-back days. Default: 7.")
+    },
+    annotations: read,
+    script,
+    requires,
+    envelope,
+    timeoutMs,
+    truncationHint: "pass courseid to scope to one course, or lower days",
+    buildArgs: (input2) => {
+      const argv = ["updates"];
+      pushPos(argv, input2.courseid);
+      pushFlag(argv, "--days", input2.days);
+      return argv;
+    }
+  }),
+  scriptTool({
+    name: "e3p_list_notifications",
+    description: "List the E3 notification bell (content changes, grading, forum replies, due reminders), newest first, with the unread count. Reading does not mark notifications as read.",
+    inputSchema: {
+      limit: exports_external.number().optional().describe("Maximum notifications. Default: 20."),
+      unread: exports_external.boolean().optional().describe("Only unread notifications.")
+    },
+    annotations: read,
+    script,
+    requires,
+    envelope,
+    timeoutMs,
+    truncationHint: "lower limit or pass unread",
+    buildArgs: (input2) => {
+      const argv = ["notifications"];
+      pushFlag(argv, "--limit", input2.limit);
+      pushFlag(argv, "--unread", input2.unread);
+      return argv;
+    }
+  }),
+  scriptTool({
+    name: "e3p_list_quizzes",
+    description: "List quizzes for one course or all visible enrolled courses, with open and close times. status=true costs one extra API call per quiz and adds your attempts.",
+    inputSchema: {
+      courseid: exports_external.number().optional().describe("Course ID. Omit for all visible courses."),
+      status: exports_external.boolean().optional().describe("Also fetch your attempts per quiz.")
+    },
+    annotations: read,
+    script,
+    requires,
+    envelope,
+    timeoutMs,
+    truncationHint: "pass courseid to scope to one course, or drop status",
+    buildArgs: (input2) => {
+      const argv = ["quizzes"];
+      pushPos(argv, input2.courseid);
+      pushFlag(argv, "--status", input2.status);
       return argv;
     }
   }),
@@ -35461,7 +35532,7 @@ var allTools = [...e3pTools, ...nycuTools, ...parttimeTools, ...timetableTools];
 var plugin_default = {
   $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   name: "nycu",
-  version: "0.3.0",
+  version: "0.4.0",
   description: "NYCU portal, E3 coursework, public timetable and part-time attendance through MCP.",
   author: {
     name: "zyx1121",

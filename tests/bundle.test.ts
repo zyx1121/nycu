@@ -15,7 +15,7 @@ for (const platform of ["darwin", "linux"]) {
       Object.assign(env, { XDG_CONFIG_HOME: join(temp, "config"), NYCU_FORCE_PLATFORM: platform });
       await client.connect(new StdioClientTransport({ command: process.execPath, args: [join(temp, "dist/server.js")], cwd: temp, env, stderr: "pipe" }));
       const listed = await client.listTools();
-      expect(listed.tools).toHaveLength(platform === "darwin" ? 22 : 14);
+      expect(listed.tools).toHaveLength(platform === "darwin" ? 26 : 18);
       const result = await client.callTool({ name: "timetable_get_periods", arguments: {} });
       expect(result.isError).not.toBe(true);
       expect((result.structuredContent as {data: {days: Record<string,string>}}).data.days.M).toBe("Mon");

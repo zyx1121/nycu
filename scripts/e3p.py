@@ -3,7 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["typer", "rich"]
 # ///
-"""E3@NYCU (Moodle) atoms — login / whoami / courses / assignments / due / announcements / submission / grades / content / download / call.
+"""E3@NYCU (Moodle) atoms — login / whoami / courses / assignments / due / announcements / discussion / updates / notifications / quizzes / submission / grades / content / download / call.
 
 Wraps the Moodle Web Services REST API (`/webservice/rest/server.php`) so
 agents and humans can query an enrolled Moodle site without hand-rolling
@@ -72,7 +72,7 @@ app = typer.Typer(
     rich_markup_mode=None,
     no_args_is_help=True,
     add_completion=False,
-    help="E3@NYCU (Moodle) atoms — login / courses / assignments / due / announcements / submission / grades / content / download / call.",
+    help="E3@NYCU (Moodle) atoms — login / courses / assignments / due / announcements / discussion / updates / notifications / quizzes / submission / grades / content / download / call.",
 )
 console = Console()
 
@@ -531,6 +531,15 @@ def content(courseid: int = typer.Argument(...)) -> None:
 
 
 # ── announcements ───────────────────────────────────────────────
+def _visible_course_ids(creds: dict, courseid: Optional[int]) -> list[int]:
+    if courseid:
+        return [courseid]
+    if not creds.get("userid"):
+        fail("missing userid", hint="set NYCU_E3P_USERID or run `uv run scripts/e3p.py login`")
+    cs = _ws("core_enrol_get_users_courses", userid=creds["userid"], _creds=creds)
+    return [c["id"] for c in cs if c.get("visible", 1)]
+
+
 def _html_to_text(s: str) -> str:
     """Keep line breaks from block tags so a post reads as paragraphs, not one run-on line."""
     s = re.sub(r"(?i)<br\s*/?>|</(p|div|li|h[1-6]|tr)>", "\n", s or "")
@@ -546,13 +555,7 @@ def announcements(
     limit: int = typer.Option(20, "--limit", "-n", help="Maximum posts per course"),
 ) -> None:
     creds = _load_creds()
-    if courseid:
-        course_ids = [courseid]
-    else:
-        if not creds.get("userid"):
-            fail("missing userid", hint="set NYCU_E3P_USERID or run `uv run scripts/e3p.py login`")
-        cs = _ws("core_enrol_get_users_courses", userid=creds["userid"], _creds=creds)
-        course_ids = [c["id"] for c in cs if c.get("visible", 1)]
+    course_ids = _visible_course_ids(creds, courseid)
     if not course_ids:
         emit([], {"count": 0, "days": days}, human=lambda d, _m: console.print("no courses"))
         return
@@ -597,6 +600,179 @@ def announcements(
         console.print(t)
 
     emit(rows, {"count": len(rows), "days": days}, human=human)
+
+
+# ── discussion ──────────────────────────────────────────────────
+@app.command(help="Every post in one forum discussion (an announcement and its replies), oldest first.")
+def discussion(discussionid: int = typer.Argument(..., help="Discussion ID (from `announcements` output)")) -> None:
+    res = _ws("mod_forum_get_discussion_posts", discussionid=discussionid, sortby="created", sortdirection="ASC")
+    rows = [
+        {
+            "postid": x["id"],
+            "parentid": x.get("parentid"),
+            "subject": x.get("subject"),
+            "author": (x.get("author") or {}).get("fullname"),
+            "created": x.get("timecreated"),
+            "message": _html_to_text(x.get("message", "")),
+            "attachments": [
+                {"name": a.get("filename"), "url": a.get("fileurl")}
+                for a in (x.get("attachments") or [])
+            ],
+        }
+        for x in res.get("posts", [])
+        if not x.get("isdeleted")
+    ]
+
+    def human(d, _m):
+        for r in d:
+            console.print(f"[bold]{r['subject']}[/] {r['author'] or '-'} {_fmt_ts(r['created'], '%m/%d %H:%M')}")
+            console.print(r["message"], markup=False)
+            console.print()
+
+    emit(rows, {"count": len(rows), "discussionid": discussionid}, human=human)
+
+
+# ── updates ─────────────────────────────────────────────────────
+@app.command(help="Activities added or changed since N days ago (new files, edited instructions, new posts), per course.")
+def updates(
+    courseid: Optional[int] = typer.Argument(None, help="Course ID; omit for all visible enrolled courses"),
+    days: int = typer.Option(7, "--days", "-d", help="Look back window"),
+) -> None:
+    creds = _load_creds()
+    since = int(datetime.now().timestamp()) - days * 86400
+    rows: list[dict] = []
+    for cid in _visible_course_ids(creds, courseid):
+        res = _ws("core_course_get_updates_since", courseid=cid, since=since, _creds=creds)
+        changed = [i for i in res.get("instances", []) if i.get("contextlevel") == "module" and i.get("updates")]
+        if not changed:
+            continue
+        # The update feed only names module ids; the outline maps them to titles and URLs.
+        modules = {
+            m["id"]: m
+            for sec in _ws("core_course_get_contents", courseid=cid, _creds=creds)
+            for m in sec.get("modules", [])
+        }
+        for i in changed:
+            m = modules.get(i["id"], {})
+            rows.append({
+                "courseid": cid,
+                "cmid": i["id"],
+                "modname": m.get("modname"),
+                "name": m.get("name"),
+                "url": m.get("url"),
+                "changes": [u["name"] for u in i["updates"]],
+                "timeupdated": max((u.get("timeupdated") or 0 for u in i["updates"]), default=0) or None,
+            })
+    rows.sort(key=lambda r: r["timeupdated"] or 0, reverse=True)
+
+    def human(d, _m):
+        t = Table(show_header=True, header_style="bold")
+        t.add_column("Course", justify="right")
+        t.add_column("Type")
+        t.add_column("Name")
+        t.add_column("Changes")
+        for r in d:
+            t.add_row(str(r["courseid"]), r["modname"] or "-", r["name"] or str(r["cmid"]), ", ".join(r["changes"]))
+        console.print(t)
+
+    emit(rows, {"count": len(rows), "days": days}, human=human)
+
+
+# ── notifications ───────────────────────────────────────────────
+@app.command(help="Your E3 notification bell (grading, content changes, forum replies, due reminders), newest first. Reading does not mark them read.")
+def notifications(
+    limit: int = typer.Option(20, "--limit", "-n"),
+    unread: bool = typer.Option(False, "--unread", help="Only unread notifications"),
+) -> None:
+    creds = _load_creds()
+    if not creds.get("userid"):
+        fail("missing userid", hint="set NYCU_E3P_USERID or run `uv run scripts/e3p.py login`")
+    res = _ws("message_popup_get_popup_notifications", useridto=creds["userid"], newestfirst=1, limit=limit, offset=0, _creds=creds)
+    rows = [
+        {
+            "id": n["id"],
+            "subject": n.get("subject"),
+            # Moodle appends a preferences link label to every message; it carries no content.
+            "text": _html_to_text(n.get("smallmessage") or n.get("text") or "").removesuffix("調整您的通知偏好設定").strip(),
+            "name": n.get("contexturlname"),
+            "url": n.get("contexturl"),
+            "eventtype": n.get("eventtype"),
+            "component": n.get("component"),
+            "created": n.get("timecreated"),
+            "read": bool(n.get("read")),
+        }
+        for n in res.get("notifications", [])
+        if not n.get("deleted")
+    ]
+    if unread:
+        rows = [r for r in rows if not r["read"]]
+
+    def human(d, _m):
+        t = Table(show_header=True, header_style="bold")
+        t.add_column("When")
+        t.add_column("")
+        t.add_column("Subject")
+        for r in d:
+            t.add_row(_fmt_ts(r["created"], "%m/%d %H:%M"), "" if r["read"] else "*", r["subject"] or "-")
+        console.print(t)
+
+    emit(rows, {"count": len(rows), "unreadcount": res.get("unreadcount")}, human=human)
+
+
+# ── quizzes ─────────────────────────────────────────────────────
+@app.command(help="List quizzes (one course or all visible enrolled). Use --status to include your attempts.")
+def quizzes(
+    courseid: Optional[int] = typer.Argument(None, help="Course ID; omit for all visible enrolled courses"),
+    status: bool = typer.Option(False, "--status/--no-status", help="Fetch your attempts per quiz (N+1 calls)"),
+) -> None:
+    creds = _load_creds()
+    course_ids = _visible_course_ids(creds, courseid)
+    res = _ws("mod_quiz_get_quizzes_by_courses", courseids=course_ids, _creds=creds) if course_ids else {}
+    rows: list[dict] = []
+    for q in res.get("quizzes", []):
+        entry = {
+            "courseid": q["course"],
+            "quizid": q["id"],
+            "cmid": q.get("coursemodule"),
+            "name": q.get("name"),
+            "timeopen": q.get("timeopen") or None,
+            "timeclose": q.get("timeclose") or None,
+            "timelimit": q.get("timelimit") or None,
+            "attempts_allowed": q.get("attempts") or None,
+            "grade": q.get("grade"),
+            "intro": _html_to_text(q.get("intro", "")),
+        }
+        if status:
+            a = _ws("mod_quiz_get_user_attempts", quizid=q["id"], status="all", _creds=creds)
+            entry["attempts"] = [
+                {
+                    "attempt": x.get("attempt"),
+                    "state": x.get("state"),
+                    "timestart": x.get("timestart") or None,
+                    "timefinish": x.get("timefinish") or None,
+                    "sumgrades": x.get("sumgrades"),
+                }
+                for x in a.get("attempts", [])
+            ]
+        rows.append(entry)
+    rows.sort(key=lambda r: r["timeclose"] or 0)
+
+    def human(d, _m):
+        t = Table(show_header=True, header_style="bold")
+        t.add_column("Course", justify="right")
+        t.add_column("ID", justify="right")
+        t.add_column("Name")
+        t.add_column("Close")
+        if status:
+            t.add_column("Attempts", justify="right")
+        for r in d:
+            row = [str(r["courseid"]), str(r["quizid"]), r["name"] or "-", _fmt_ts(r["timeclose"], "%m/%d %H:%M")]
+            if status:
+                row.append(str(len(r["attempts"])))
+            t.add_row(*row)
+        console.print(t)
+
+    emit(rows, {"count": len(rows), "with_status": status}, human=human)
 
 
 # ── download ────────────────────────────────────────────────────
