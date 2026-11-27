@@ -1,12 +1,12 @@
 {
   "name": "@zyx1121/nycu",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "bun run scripts/build.ts",
     "typecheck": "tsc --noEmit",
-    "test": "bun test && uv run tests/test_config.py && uv run tests/test_parttime.py && uv run tests/test_e3p.py && uv run tests/test_portal.py",
+    "test": "bun test && uv run tests/test_config.py && uv run tests/test_parttime.py && uv run tests/test_payments.py && uv run tests/test_e3p.py && uv run tests/test_portal.py",
     "check": "bun run build && bun run typecheck && bun run test"
   },
   "devDependencies": {

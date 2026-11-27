@@ -347,11 +347,11 @@ _FORM_RE = re.compile(r'<form[^>]*action="([^"]+)"[^>]*>(.*?)</form>', re.DOTALL
 _INPUT_RE = re.compile(r'<input[^>]*name="([^"]+)"[^>]*value="([^"]*)"', re.IGNORECASE)
 
 
-def relay(sys_direct: str, *, _retried: bool = False) -> tuple[Any, str, str]:
-    """Relay through the portal into a sub-system.
+def relay_form(sys_direct: str, *, _retried: bool = False, opener=None) -> tuple[str, dict]:
+    """Ask the portal for a sub-system's sign-in form: (action URL, hidden fields).
 
-    Returns (opener, landing_html, landing_url). `opener` carries the
-    cookie jar so subsequent requests to the sub-system stay in-session.
+    Posting the fields to the action signs in. `relay` posts them over HTTP;
+    a sub-system that signs in with its own JavaScript needs a browser to post them.
     """
     link = api("getLoginLink", sysDirect=sys_direct)
     entries = link.get("syslink") or []
@@ -367,14 +367,10 @@ def relay(sys_direct: str, *, _retried: bool = False) -> tuple[Any, str, str]:
         raise PortalError(f"system {sys_direct!r} has no sysURL", why=json.dumps(entry, ensure_ascii=False)[:200])
 
     tok, _source = token()
-    jar = http.cookiejar.CookieJar()
-    opener = build_opener(HTTPCookieProcessor(jar), HTTPSHandler(context=_SSL_CTX))
-    opener.addheaders = [("User-Agent", "utils-nycu/1.0")]
-
     relay_html = _post_form(f"{API}relay", {"token": tok, "url": sys_url, "sysDirect": sys_direct}, opener=opener).decode(errors="replace")
     if _token_expired(relay_html) and not _retried:
         token(force=True)
-        return relay(sys_direct, _retried=True)
+        return relay_form(sys_direct, _retried=True, opener=opener)
     match = _FORM_RE.search(relay_html)
     if not match and "vpn-required" in relay_html:
         raise PortalError(
@@ -389,8 +385,19 @@ def relay(sys_direct: str, *, _retried: bool = False) -> tuple[Any, str, str]:
             hint="check campus IP requirements, or that the token is still valid",
         )
     action, body = match.group(1), match.group(2)
-    fields = {name: html.unescape(value) for name, value in _INPUT_RE.findall(body)}
+    return action, {name: html.unescape(value) for name, value in _INPUT_RE.findall(body)}
 
+
+def relay(sys_direct: str) -> tuple[Any, str, str]:
+    """Relay through the portal into a sub-system.
+
+    Returns (opener, landing_html, landing_url). `opener` carries the
+    cookie jar so subsequent requests to the sub-system stay in-session.
+    """
+    jar = http.cookiejar.CookieJar()
+    opener = build_opener(HTTPCookieProcessor(jar), HTTPSHandler(context=_SSL_CTX))
+    opener.addheaders = [("User-Agent", "utils-nycu/1.0")]
+    action, fields = relay_form(sys_direct, opener=opener)
     landing, landing_url = _post_form_full(action, fields, opener=opener)
     return opener, landing.decode(errors="replace"), landing_url
 
