@@ -35456,11 +35456,41 @@ var parttimeTools = [
   })
 ];
 
-// src/tools/timetable.ts
-var script4 = "timetable.py";
-var requires4 = ["binary:uv"];
+// src/tools/payments.ts
+var script4 = "payments.py";
+var requires4 = ["platform:darwin", "binary:uv"];
 var envelope4 = true;
-var timeoutMs4 = 60000;
+var timeoutMs4 = 180000;
+var day = exports_external.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+var paymentsTools = [
+  scriptTool({
+    name: "nycu_list_payments",
+    description: "List what NYCU paid you between two dates, from the cashier's payment inquiry system: reimbursements and other cashier payments (kind cashier, with the voucher memo saying what each was for, the receiving bank and the account's last 4 digits) and payroll batches (kind salary, with the payroll name). Amounts in TWD. Use it to match bank deposits from the university.",
+    inputSchema: {
+      from: day.optional().describe("First day, YYYY-MM-DD. Default: January 1 of this year."),
+      to: day.optional().describe("Last day, YYYY-MM-DD. Default: today."),
+      kind: exports_external.enum(["cashier", "salary"]).optional().describe("Only this kind. Default: both.")
+    },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+    script: script4,
+    requires: requires4,
+    envelope: envelope4,
+    timeoutMs: timeoutMs4,
+    buildArgs: (input2) => {
+      const argv = ["list"];
+      pushFlag(argv, "--from", input2.from);
+      pushFlag(argv, "--to", input2.to);
+      pushFlag(argv, "--kind", input2.kind);
+      return argv;
+    }
+  })
+];
+
+// src/tools/timetable.ts
+var script5 = "timetable.py";
+var requires5 = ["binary:uv"];
+var envelope5 = true;
+var timeoutMs5 = 60000;
 var read4 = { readOnlyHint: true, openWorldHint: true };
 var timetableTools = [
   scriptTool({
@@ -35468,10 +35498,10 @@ var timetableTools = [
     description: "List NYCU timetable semester codes (e.g. 1151), newest first. Pass one as acysem to search/lookup, or omit it there to default to the latest semester.",
     inputSchema: {},
     annotations: read4,
-    script: script4,
-    requires: requires4,
-    envelope: envelope4,
-    timeoutMs: timeoutMs4,
+    script: script5,
+    requires: requires5,
+    envelope: envelope5,
+    timeoutMs: timeoutMs5,
     buildArgs: () => ["semesters"]
   }),
   scriptTool({
@@ -35483,10 +35513,10 @@ var timetableTools = [
       acysem: exports_external.string().optional().describe("Semester code like 1151. Default: latest semester.")
     },
     annotations: read4,
-    script: script4,
-    requires: requires4,
-    envelope: envelope4,
-    timeoutMs: timeoutMs4,
+    script: script5,
+    requires: requires5,
+    envelope: envelope5,
+    timeoutMs: timeoutMs5,
     truncationHint: "narrow with by=code, or add acysem to scope one semester",
     buildArgs: (input2) => {
       const argv = ["search", input2.query];
@@ -35503,10 +35533,10 @@ var timetableTools = [
       acysem: exports_external.string().optional().describe("Semester code like 1151. Default: latest semester.")
     },
     annotations: read4,
-    script: script4,
-    requires: requires4,
-    envelope: envelope4,
-    timeoutMs: timeoutMs4,
+    script: script5,
+    requires: requires5,
+    envelope: envelope5,
+    timeoutMs: timeoutMs5,
     buildArgs: (input2) => {
       const argv = ["lookup", ...input2.cos_ids.map(String)];
       pushFlag(argv, "--acysem", input2.acysem);
@@ -35518,22 +35548,22 @@ var timetableTools = [
     description: "Static reference table mapping NYCU period codes (1-9, y, z, n, a-d) to start/end times, plus day letters to weekday names. No network call.",
     inputSchema: {},
     annotations: read4,
-    script: script4,
-    requires: requires4,
-    envelope: envelope4,
-    timeoutMs: timeoutMs4,
+    script: script5,
+    requires: requires5,
+    envelope: envelope5,
+    timeoutMs: timeoutMs5,
     buildArgs: () => ["periods"]
   })
 ];
 
 // src/tools/index.ts
-var allTools = [...e3pTools, ...nycuTools, ...parttimeTools, ...timetableTools];
+var allTools = [...e3pTools, ...nycuTools, ...paymentsTools, ...parttimeTools, ...timetableTools];
 // plugin.json
 var plugin_default = {
   $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   name: "nycu",
-  version: "0.4.0",
-  description: "NYCU portal, E3 coursework, public timetable and part-time attendance through MCP.",
+  version: "0.5.0",
+  description: "NYCU portal, E3 coursework, public timetable, part-time attendance and university payments through MCP.",
   author: {
     name: "zyx1121",
     url: "https://github.com/zyx1121"

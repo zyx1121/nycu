@@ -1,7 +1,7 @@
 {
   "name": "nycu",
-  "version": "0.4.0",
-  "description": "NYCU portal, E3 coursework, public timetable and part-time attendance through MCP.",
+  "version": "0.5.0",
+  "description": "NYCU portal, E3 coursework, public timetable, part-time attendance and university payments through MCP.",
   "author": {
     "name": "zyx1121",
     "url": "https://github.com/zyx1121"
